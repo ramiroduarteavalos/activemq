@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "activemq.fullname" . }}
+  labels:
+    {{- include "activemq.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: "61616"
+      port: 61616
+      targetPort: 61616
+    - name: "8161"
+      port: 8161
+      targetPort: 8161
+    - name: "61613"
+      port: 61613
+      targetPort: 61613 
+  #ports:
+  #  # - port: {{ .Values.service.port }}
+  #  #   targetPort: http
+  #  #   protocol: TCP
+  #  #   name: http
+  #  - port: {{ .Values.service.port.http}}
+  #    targetPort: http
+  #    protocol: TCP
+  #    name: http
+    {{- if eq .Values.grpcEnabled true}}
+    - port: 6565
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    {{- end}}      
+  selector:
+    {{- include "activemq.selectorLabels" . | nindent 4 }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  loadBalancerSourceRanges:
+{{ toYaml .Values.App.LoadBalancerSourceRanges | indent 4 }}
+  {{- end}}

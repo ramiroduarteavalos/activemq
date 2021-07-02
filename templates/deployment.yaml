@@ -1,0 +1,93 @@
+{{- $chartName := include "activemq.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "activemq.fullname" . }}
+  labels:
+    {{- include "activemq.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.hpa.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "activemq.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}  
+      labels:
+{{- if .Values.podLabels }}
+{{ toYaml .Values.podLabels | indent 8 }}
+{{- end }}        
+        #{{- include "activemq.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- if eq .Values.hostAliases.enabled true }}
+      hostAliases:
+      {{- range $key, $val := .Values.hostAliases.list }}
+      - ip: {{ $val | quote }}
+        hostnames:
+        - {{ $key | quote }}
+      {{- end}}
+    {{- end}}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "activemq.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          #image: {{ .Values.image.repository }}/{{ .Values.name }}:{{ .Values.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: 
+            - name: http
+              containerPort: {{ .Values.container.port.http }}
+              protocol: TCP
+#          livenessProbe:
+#            httpGet:
+#              path: /
+#              port: http
+#          readinessProbe:
+#            httpGet:
+#              path: /
+#              port: http
+          envFrom:
+          - configMapRef:
+              name: {{ $chartName }}-config
+          - secretRef:
+              name: {{ $chartName }}-secrets
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: activemq
+              mountPath: "/opt/activemq/conf/activemq.xml"
+              subPath: activemq.xml   
+            - name: limits
+              mountPath: "/etc/security/limits.conf"
+              subPath: limits.conf                       
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: activemq
+        configMap:
+          name: activemq.xml
+      - name: limits
+        configMap:
+          name: limits.conf       
